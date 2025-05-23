@@ -28,12 +28,28 @@ class FunctionalSshSocksConnectorTest extends TestCase
      */
     public function tearDownSSHClientProcess()
     {
+        // Skip timer-based teardown for PHP 5.3 where React\Promise\Timer is not available
+        if (!class_exists('React\\Promise\\Timer\\TimeoutException')) {
+            return;
+        }
+
         // run loop in order to shut down SSH client process again
         \React\Async\await(\React\Promise\Timer\sleep(0.001));
     }
 
+    // Helper method to check if Timer functions are available
+    private function hasTimerSupport()
+    {
+        return class_exists('React\\Promise\\Timer\\TimeoutException');
+    }
+
     public function testConnectInvalidProxyUriWillReturnRejectedPromise()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $this->connector = new SshSocksConnector(getenv('SSH_PROXY') . '.invalid');
 
         $promise = $this->connector->connect('example.com:80');
@@ -44,6 +60,11 @@ class FunctionalSshSocksConnectorTest extends TestCase
 
     public function testConnectInvalidTargetWillReturnRejectedPromise()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $promise = $this->connector->connect('example.invalid:80');
 
         $this->setExpectedException('RuntimeException', 'Connection to tcp://example.invalid:80 failed because connection to proxy was lost');
@@ -52,6 +73,11 @@ class FunctionalSshSocksConnectorTest extends TestCase
 
     public function testCancelConnectWillReturnRejectedPromise()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $promise = $this->connector->connect('example.com:80');
         $promise->cancel();
 
@@ -61,6 +87,11 @@ class FunctionalSshSocksConnectorTest extends TestCase
 
     public function testConnectValidTargetWillReturnPromiseWhichResolvesToConnection()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $promise = $this->connector->connect('example.com:80');
 
         $connection = \React\Async\await(\React\Promise\Timer\timeout($promise, self::TIMEOUT));
@@ -73,6 +104,11 @@ class FunctionalSshSocksConnectorTest extends TestCase
 
     public function testConnectValidTargetWillReturnPromiseWhichResolvesToConnectionForCustomBindAddress()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $this->connector = new SshSocksConnector(getenv('SSH_PROXY') . '?bind=127.0.0.1:1081');
         $promise = $this->connector->connect('example.com:80');
 
@@ -86,6 +122,11 @@ class FunctionalSshSocksConnectorTest extends TestCase
 
     public function testConnectPendingWillNotInheritActiveFileDescriptors()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $server = stream_socket_server('tcp://127.0.0.1:0');
         $address = stream_socket_get_name($server, false);
 

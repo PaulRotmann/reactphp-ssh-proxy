@@ -7,10 +7,12 @@ on:
 jobs:
   PHPUnit:
     name: PHPUnit (PHP ${{ matrix.php }})
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         php:
+          - 8.4
+          - 8.3
           - 8.2
           - 8.1
           - 8.0
@@ -24,28 +26,36 @@ jobs:
           - 5.4
           - 5.3
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: xdebug
       - run: composer remove react/mysql --dev --no-interaction # do not install react/mysql example on legacy PHP
+      - name: Handle PHP 5.3 compatibility
         if: ${{ matrix.php == 5.3 }}
+        run: |
+          composer remove react/mysql react/promise-timer --dev --no-interaction
+          # Skip tests that require React\Promise\Timer
+          echo "PHPUNIT_ARGS=--exclude-group=internet" >> $GITHUB_ENV
       - run: composer install
-      - run: vendor/bin/phpunit --coverage-text
+      - run: vendor/bin/phpunit --coverage-text $PHPUNIT_ARGS
         if: ${{ matrix.php >= 7.3 }}
-      - run: vendor/bin/phpunit --coverage-text -c phpunit.xml.legacy
+      - run: vendor/bin/phpunit --coverage-text -c phpunit.xml.legacy $PHPUNIT_ARGS
         if: ${{ matrix.php < 7.3 }}
 
   PHPUnit-hhvm:
     name: PHPUnit (HHVM)
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v2
-      - uses: azjezz/setup-hhvm@v1
+      - uses: actions/checkout@v3
+      - run: cp "$(which composer)" composer.phar && ./composer.phar self-update --2.2 # downgrade Composer for HHVM
+      - name: Run HHVM Composer install
+        uses: docker://hhvm/hhvm:3.30-lts-latest
         with:
-          version: lts-3.30
-      - run: composer self-update --2.2 # downgrade Composer for HHVM
-      - run: hhvm $(which composer) install
-      - run: hhvm vendor/bin/phpunit
+          args: hhvm composer.phar remove react/mysql react/promise-timer --dev --no-interaction && hhvm composer.phar install
+      - name: Run HHVM PHPUnit
+        uses: docker://hhvm/hhvm:3.30-lts-latest
+        with:
+          args: hhvm vendor/bin/phpunit --exclude-group=internet

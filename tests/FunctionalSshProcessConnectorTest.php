@@ -23,6 +23,17 @@ class FunctionalSshProcessConnectorTest extends TestCase
         $this->connector = new SshProcessConnector($url);
     }
 
+    /**
+     * @before
+     */
+    public function checkTimerSupport()
+    {
+        // Skip this test for PHP 5.3 where React\Promise\Timer isn't available
+        if (!class_exists('React\\Promise\\Timer')) {
+            $this->markTestSkipped('No Timer support available');
+        }
+    }
+
     public function testConnectInvalidProxyUriWillReturnRejectedPromise()
     {
         $this->connector = new SshProcessConnector(getenv('SSH_PROXY') . '.invalid');

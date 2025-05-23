@@ -6,6 +6,26 @@ use Clue\React\SshProxy\SshProcessConnector;
 
 class SshProcessConnectorTest extends TestCase
 {
+    /**
+     * @after
+     */
+    public function tearDownSSHClientProcess()
+    {
+        // Skip timer-based teardown for PHP 5.3 where React\Promise\Timer is not available
+        if (!class_exists('React\\Promise\\Timer\\TimeoutException')) {
+            return;
+        }
+
+        // run loop in order to shut down SSH client process again
+        \React\Async\await(\React\Promise\Timer\sleep(0.001));
+    }
+
+    // Helper method to check if Timer functions are available
+    private function hasTimerSupport()
+    {
+        return class_exists('React\\Promise\\Timer\\TimeoutException');
+    }
+
     public function testConstructWithoutLoopAssignsLoopAutomatically()
     {
         $connector = new SshProcessConnector('host');
@@ -104,6 +124,11 @@ class SshProcessConnectorTest extends TestCase
 
     public function testConnectReturnsRejectedPromiseForInvalidUri()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $loop = $this->getMockBuilder('React\EventLoop\LoopInterface')->getMock();
         $connector = new SshProcessConnector('host', $loop);
 
@@ -113,6 +138,11 @@ class SshProcessConnectorTest extends TestCase
 
     public function testConnectReturnsRejectedPromiseForInvalidHost()
     {
+        if (!$this->hasTimerSupport()) {
+            $this->markTestSkipped('No Timer support available');
+            return;
+        }
+
         $loop = $this->getMockBuilder('React\EventLoop\LoopInterface')->getMock();
         $connector = new SshProcessConnector('host', $loop);
 
